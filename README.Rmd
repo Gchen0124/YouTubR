@@ -18,7 +18,7 @@ The goal of YouTubR is to show data and analysis for the New York Times Youtube 
 
 ## Installation
 
-You can install the released version of YouTubR from [CRAN](https://CRAN.R-project.org) with:
+You can install the released version of YouTubR from [CRAN](https://github.com/Gchen0124/YouTubR/) with:
 
 ``` r
 install.packages("YouTubR")

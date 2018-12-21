@@ -1,0 +1,25 @@
+---
+output: github_document
+---
+
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "man/figures/README-",
+  out.width = "100%"
+)
+```
+# YouTubR
+
+The goal of YouTubR is to show data and analysis for the New York Times Youtube Channel videos.
+
+## Installation
+
+You can install the released version of YouTubR from [CRAN](https://CRAN.R-project.org) with:
+
+``` r
+install.packages("YouTubR")
+```

@@ -1,0 +1,474 @@
+---
+title: "Data Gathering and Analysis"
+author: "Guohao Chen"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Data Gathering and Analysis}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r}
+library(tuber)
+library(tidyverse)
+library(lubridate)
+library(stringi)
+library(wordcloud)
+library(gridExtra)
+library(httr)
+library(purrr)
+library(tibble)
+library(magrittr)
+library(jsonlite)
+library(tidyr)
+library(plotly)
+```
+
+# Link to YouTube API will require OAuth: Credentials and Secret 
+
+```{r, eval=FALSE, auth}
+yt_oauth("278404634406-0t19licmr7cm01gh5v5tn68l5cu26vu6.apps.googleusercontent.com", "FImGFkYTB18S2d3GO9Y8iypg")
+```
+
+# Get Video Ids from a Channel - Dataset 1
+
+```{r, eval=FALSE}
+#Get Videos from the New York Times by putting in channel_id that can be found on the YouTube channel html
+#Only look at the videos published after 2016
+videos = yt_search(term="",type="video", channel_id = "UCqnbDFdCpuN8CMEg0VuEBqA")
+videos = videos %>%
+  mutate(date = as.Date(publishedAt)) %>%
+  filter(date > "2016-01-01") %>%
+  arrange(date)
+saveRDS(videos, file = "videos.rds")
+
+```
+
+# Dataset 1 : ID, published date, video title & etc.
+
+
+```{r}
+#Display the first dataset gathered, this does not include important performance and engagement data including number of view, comments, like, dislike. 
+Videos <- readRDS(file = "videos.rdS")
+head(Videos)
+
+```
+
+```{r}
+summary(Videos)
+
+```
+
+# Get performance data : Dataset 2
+## Function: get_single_video_stats
+
+```{r}
+#Get more specifc viedeo performance data for a simple video by its video ID : viewCount, likeCount & etc. 
+get_single_video_stats <- function(x)
+{get_stats(video_id = x)}
+
+```
+
+```{r,eval= FALSE}
+#Test on a single video by the video ID
+get_single_video_stats ("SwBA1qb5ENg")
+```
+
+$`id`
+[1] "SwBA1qb5ENg"
+
+$viewCount
+[1] "59753"
+
+$likeCount
+[1] "343"
+
+$dislikeCount
+[1] "16"
+
+$favoriteCount
+[1] "0"
+
+$commentCount
+[1] "45"
+
+
+## Get Dataset 2 : Video ID with viewCount, likeCount, commentCount & etc.
+
+```{r,eval=FALSE}
+#Get more specifc video data for all the videos gathered before by their video_ID
+videodata <- lapply(as.character(videos$video_id), get_single_video_stats)
+saveRDS(videodata, file = "videodata.rds")
+```
+
+```{r}
+videodata <- readRDS(file = "videodata.rds")
+head(videodata)
+```
+
+## Transform Dataset 2
+```{r}
+#Transform dataset2 from nested list to a matrix
+videodata1 <- do.call(rbind,videodata)
+head(videodata1)
+```
+
+```{r}
+#Transform dataset2 to a dataframe and unlist nested list in each column
+videodata2 <- data.frame(videodata1)
+videodata2$id <- unlist (videodata2$id)
+videodata2$viewCount <- unlist (videodata2$viewCount)
+videodata2$likeCount <- unlist (videodata2$likeCount)
+videodata2$dislikeCount <- unlist (videodata2$dislikeCount)
+videodata2$favoriteCount <- unlist (videodata2$favoriteCount)
+videodata2$commentCount <- unlist (videodata2$commentCount)
+head(videodata2)
+```
+
+```{r}
+#Unifify video_id column names in the two datasets
+colnames(videodata2)[1] <- "video_id"
+```
+
+```{r}
+#Select relavant columns in dataset1
+
+videos2 <- Videos[,c("video_id", "title", "publishedAt","date", "thumbnails.default.url","description")]
+head(videos2)
+```
+
+# Join dataset 1 & 2
+```{r}
+#Join two datasets together by video_id
+NYT_Video<- dplyr::full_join(videos2, videodata2, by = "video_id")
+head(NYT_Video)
+```
+
+
+# Clean the combined dataset
+```{r}
+#Change all xCount columns from character to Numeric
+  NYT_Video$viewCount <-as.numeric(NYT_Video$viewCount)
+  NYT_Video$likeCount <-as.numeric(NYT_Video$likeCount)
+  NYT_Video$dislikeCount <-as.numeric(NYT_Video$dislikeCount)
+  NYT_Video$commentCount <-as.numeric(NYT_Video$commentCount)
+  
+head(NYT_Video)
+```
+
+
+```{r}
+summary(NYT_Video)
+
+```
+
+# Visualize relationship between view with number of like, dislike, and commment
+```{r}
+
+library(ggplot2)
+library(gridExtra)
+library(grid)
+p1 = ggplot(data = NYT_Video) + geom_point(aes(x = viewCount, y = likeCount))
+p2 = ggplot(data = NYT_Video) + geom_point(aes(x = viewCount, y = dislikeCount))
+p3 = ggplot(data = NYT_Video) + geom_point(aes(x = viewCount, y = commentCount))
+grid.arrange(p1, p2, p3, ncol = 2)
+```
+
+# Print Linear Relationships between performance metrics
+```{r}
+# Print Linear Relationships between performance metrics
+Like_View <- lm(NYT_Video$likeCount~NYT_Video$viewCount)
+Dislike_View <- lm(NYT_Video$dislikeCount~NYT_Video$viewCount)
+Comment_View <- lm(NYT_Video$commentCount~NYT_Video$viewCount)
+Comment_Like <- lm(NYT_Video$commentCount~NYT_Video$likeCount)
+Comment_Dislike <- lm(NYT_Video$commentCount~NYT_Video$dislikeCount)
+print(Like_View)
+print(Dislike_View)
+print(Comment_View)
+print(Comment_Like)
+print(Comment_Dislike)
+
+
+```
+### Insight1: People are much more likely to comment when they dislike a video rather than comment a video when they like it
+### Insight2: 1/100 of people view the video will click 'like'.
+
+
+# Get Average Length of video titles : 64 characters.
+
+```{r}
+library(stringr)
+VideoTitle <- NYT_Video$title
+titlelength <- str_length(VideoTitle)
+mean(titlelength)
+```
+
+# Provide a summary for videos in different 
+## Clean "Title" Column
+```{r}
+#The title of the video includes several parts with "|" as seperator.
+#Seperate the title to different parts 
+library(tidyr)
+NYT_Video <- separate(data = NYT_Video, col = title, into = c("part1", "part2", "part3", "part4"), sep = "\\|")
+```
+
+```{r}
+head(NYT_Video)
+```
+
+#Get the average performance metrics by different categories
+```{r}
+NYT_Video_Summary <- NYT_Video %>%
+  group_by(part2) %>%
+  summarize(number=n(), mean_viewCount = mean(viewCount, na.rm = TRUE), mean_likeCount = mean(likeCount, na.rm = TRUE), mean_dislikeCount = mean(dislikeCount, na.rm = TRUE),mean_commentCount = mean(commentCount, na.rm = TRUE))
+head(NYT_Video_Summary)
+```
+
+
+```{r}
+summary(NYT_Video_Summary)
+
+```
+
+```{r}
+# The Part 2 that indicates the category of the video is very messy due to the summary. 
+# This requires data cleaning using stringr package.
+NYT_Video_Summary <- NYT_Video_Summary %>%
+  arrange(desc(number))
+top_n(NYT_Video_Summary,10)
+```
+
+#Clean Part2/Category data
+```{r}
+NYT_Video$part2 <- str_replace_all(NYT_Video$part2, "NYT - Opinion", "NYT Opinion")
+```
+
+```{r}
+NYT_Video %>%
+  filter(str_detect(part2, "Opinion"))
+```
+
+```{r, eval=FALSE}
+NYT_Video$part2 <- str_replace_all(NYT_Video$part2, "NYT Op-Docs", "Op-Docs")
+NYT_Video$part2 <- str_replace_all(NYT_Video$part2,  "Op-Docs", "NYT Op-Docs")
+NYT_Video %>%
+  filter(str_detect(part2, "Op-Docs"))
+```
+
+```{r}
+NYT_Video$part2 <- str_replace_all(NYT_Video$part2, "NYT - Dispatches	", "NYT Dispatches")
+NYT_Video$part2 <- str_replace_all(NYT_Video$part2, "NYT Dispatches", "Dispatches")
+NYT_Video$part2 <- str_replace_all(NYT_Video$part2,  "Dispatches", "NYT Dispatches")
+NYT_Video %>%
+  filter(str_detect(part2, "Dispatches"))
+```
+
+```{r, eval=FALSE}
+NYT_Video$part2 <- str_replace_all(NYT_Video$part2, "NYT - Visual Investigations", "NYT Visual Investigations")
+NYT_Video$part2 <- str_replace_all(NYT_Video$part2, "NYT Visual Investigations", "Visual Investigations")
+NYT_Video$part2 <- str_replace_all(NYT_Video$part2, "Visual Investigations", "NYT Visual Investigations")
+NYT_Video %>%
+  filter(str_detect(part2, "Investigations"))
+```
+
+```{r, eval=FALSE}
+NYT_Video$part2 <- str_replace_all(NYT_Video$part2, "Times Documentaries", "Times Documentary")
+NYT_Video %>%
+  filter(str_detect(part2, "Docu"))
+```
+
+```{r, eval=FALSE}
+NYT_Video$part2 <- str_replace_all(NYT_Video$part2, "The New York Times", "NYT")
+NYT_Video %>%
+  filter(str_detect(part2, "NYT"))
+```
+
+```{r, eval=FALSE}
+NYT_Video$part2 <- str_replace_all(NYT_Video$part2, "Diary of a Song", "NYT - Diary of a Song")
+NYT_Video %>%
+  filter(str_detect(part2, "Diary"))
+```
+
+```{r, eval=FALSE}
+NYT_Video$part2 <- str_replace_all(NYT_Video$part2, "NYT - Out There", "Out There")
+NYT_Video %>%
+  filter(str_detect(part2, "Out"))
+```
+
+```{r, eval=FALSE}
+NYT_Video$part2 <- str_replace_all(NYT_Video$part2, "Conception Season 2", "NYT - Conception")
+NYT_Video %>%
+  filter(str_detect(part2, "NYT - Conception"))
+```
+
+```{r, eval=FALSE}
+NYT_Video$part2 <- str_replace_all(NYT_Video$part2, "NYT - NYT - Diary of a Song", "NYT - Diary of a Song")
+NYT_Video$part2 <- str_replace_all(NYT_Video$part2, "NYT - NYT Dispatches", "NYT Dispatches")
+
+```
+
+
+#Show Cleaned Category Summary Data
+
+```{r}
+NYT_Video_Summary <- NYT_Video %>%
+  group_by(part2) %>%
+  summarize(number=n(), mean_viewCount = mean(viewCount, na.rm = TRUE), mean_likeCount = mean(likeCount, na.rm = TRUE), mean_dislikeCount = mean(dislikeCount, na.rm = TRUE),mean_commentCount = mean(commentCount, na.rm = TRUE))
+NYT_Video_Summary %>%
+  arrange(desc(number))
+   
+```
+
+```{r, eval=FALSE}
+save(NYT_Video_Summary, file= "summary.rds")
+```
+
+```{r, eval=FALSE}
+save(NYT_Video, file= "joined_datasets.rds")
+```
+
+
+##Visulized Top View, Dislike & Comment Sections
+```{r, warning=FALSE}
+library(plotly)
+m <- list(
+  l = 50,
+  r = 50,
+  b = 100,
+  t = 100,
+  pad = 4
+)
+
+NYT_Video_Summary %>% 
+  arrange(desc(mean_viewCount)) %>%
+      head(6) %>%
+         plot_ly(x = ~part2, y = ~mean_viewCount, type = 'bar') %>%
+            add_trace(y = ~part2)  %>%
+          layout(title="Top View Sections", autosize = F, width = 800, height = 500, margin= m)
+
+##Top Dislike Sections
+NYT_Video_Summary %>% 
+  arrange(desc(mean_dislikeCount)) %>%
+      head(6) %>%
+         plot_ly(x = ~part2, y = ~mean_dislikeCount, type = 'bar') %>%
+            add_trace(y = ~part2)  %>%
+  layout(title="Top Dislike Sections", autosize = F, width = 800, height = 500)
+
+##Top Comment Sections
+NYT_Video_Summary %>% 
+  arrange(desc(mean_commentCount)) %>%
+      head(6) %>%
+         plot_ly(x = ~part2, y = ~mean_commentCount, type = 'bar') %>%
+            add_trace(y = ~part2)  %>%
+    layout(title="Top Comment Sections", autosize = F, width = 800, height = 500)
+
+#blockspace for plot
+#blockspace for plot
+#blockspace for plot
+#blockspace for plot
+#blockspace for plot
+#blockspace for plot
+#blockspace for plot
+#blockspace for plot
+#blockspace for plot
+#blockspace for plot
+
+
+```
+
+
+
+
+```{r}
+# Get Section Data 
+visual_Investigations <- NYT_Video %>% filter(str_detect(part2, "Visual Investigations"))
+```
+
+```{r}
+#Get Section Data
+NYTOpinion <- NYT_Video %>% filter(str_detect(part2, "Opinion"))
+```
+
+## Visulize Daily Average Views to show NYT Video Channel Performance
+
+```{r}
+Performance <- NYT_Video %>%
+  group_by(date) %>%
+   summarise(maxview = max(viewCount))
+
+ggplot(data = Performance) + geom_line(aes(x = date, y = maxview)) +
+  geom_smooth(aes(x = date, y = maxview), se = FALSE) + ggtitle("Views by day")
+
+```
+
+# Comments Visualization
+## Function : get_comments_by_id
+
+```{r, eval=FALSE}
+#Get Single Comment by Video_ID
+get_comments_by_id <- function(x){
+  commentData <- get_all_comments(video_id = x)
+  print(commentData)
+  }
+Comments_1 <- get_comments_by_id("MJzALqFwxmo")
+saveRDS(Comments_1, file= "Comments_example")
+```
+
+```{r}
+Comments_1 <- readRDS(file="Comments_example")
+```
+
+## Function : WordCloud 
+
+```{r, warning=FALSE}
+
+print_word_cloud<- function(x= Comments_1$textOriginal, k=30){
+
+comments_text = as.character(x)
+
+comments_text = tibble(text = Reduce(c, comments_text)) %>%
+  mutate(text = stri_trans_general(tolower(text), "Latin-ASCII"))
+remove = c("you","the","que","and","your","muito","this","that","are","for","cara",
+         "from","very","like","have","voce","man","one","nao","com","with","mais",
+         "was","can","uma","but","ficou","meu","really","seu","would","sua","more",
+         "it's","it","is","all","i'm","mas","como","just","make","what","esse","how",
+         "por","favor","sempre","time","esta","every","para","i've","tem","will",
+         "you're","essa","not","faz","pelo","than","about","acho","isso",
+         "way","also","aqui","been","out","say","should","when","did","mesmo",
+         "minha","next","cha","pra","sei","sure","too","das","fazer","made",
+         "quando","ver","cada","here","need","ter","don't","este","has","tambem",
+         "una","want","ate","can't","could","dia","fiquei","num","seus","tinha","vez",
+         "ainda","any","dos","even","get","must","other","sem","vai","agora","desde",
+         "dessa","fez","many","most","tao","then","tudo","vou","ficaria","foi","pela",
+         "see","teu","those","were")
+words = tibble(word = Reduce(c, stri_extract_all_words(comments_text$text))) %>%
+  group_by(word) %>% count() %>% arrange(desc(n)) %>% filter(nchar(word) >= 3) %>%
+  filter(n > k & word %in% remove == FALSE) 
+ 
+set.seed(3)
+wordcloud(words$word, words$n, random.order = FALSE, random.color = TRUE,
+          rot.per = 0.3, colors = 1:nrow(words))
+}
+```
+
+```{r, warning=FALSE}
+# Default wordcloud is for the sample video in the NYT-Opinion section
+# Why Ann Coulter Thinks President Trump Is 'Failing' | NYT - Opinion
+print_word_cloud ()
+```
+
+
+```{r, warning=FALSE}
+#WordCloud for Video Titles
+print_word_cloud (NYT_Video$part1,3)
+```
+
+

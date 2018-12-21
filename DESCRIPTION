@@ -1,0 +1,31 @@
+Package: YouTubR
+Type: Package
+Title: Analysis of the New York Times' YouTube Channel
+Version: 0.1.0
+Authors@R: person("Guohao", "Chen", email = "gc2801@columbia.edu",
+      role = c("aut", "cre"))
+Description: Get video data from the NYT YouTube Channel. Analyze the performance data, category, and comments.
+License: License: MIT + file LICENSE
+Encoding: UTF-8
+LazyData: true
+Suggests: 
+    knitr,
+    rmarkdown,
+    testthat
+Import: 
+      tuber,
+      tidyverse,
+      lubridate,
+      stringr,
+      wordcloud,
+      gridExtra,
+      httr,
+      purrr,
+      tibble,
+      magrittr,
+      jsonlite,
+      tidyr,
+      plotly,
+      ggplot2
+VignetteBuilder: knitr
+RoxygenNote: 6.1.1

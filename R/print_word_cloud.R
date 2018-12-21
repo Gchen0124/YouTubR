@@ -5,8 +5,7 @@
 #' @param x A text vector.
 #' @param k A number.
 #' @return The wordcloud of \code{x} with words appears more than \code{k} times in \code{x}
-#' @examples
-#' print_word_cloud(Comments_1$textOriginal, 30)
+
 
 
 print_word_cloud <- function(x= Comments_1$textOriginal, k=30){

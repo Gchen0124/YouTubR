@@ -15,6 +15,3 @@ All the comments on the video with video ID. of \code{x}
 \description{
 Get comments for one video based on its video ID.
 }
-\examples{
-get_comments_by_id(SwBA1qb5ENg)
-}

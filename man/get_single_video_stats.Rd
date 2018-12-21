@@ -15,6 +15,3 @@ The video Stats for the video with video ID. of \code{x}
 \description{
 Get Video Stats for one video based on its video ID.
 }
-\examples{
-get_single_video_stats(SwBA1qb5ENg)
-}
